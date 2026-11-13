@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>麻辣先生スタンプカード</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Antique&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* 一枚の紙のカードを、辣油色の卓に置く。朱肉のスタンプだけが強い色。単一テーマ。 */
+:root{
+  color-scheme: dark;
+  --table:#2b1210;        /* 卓：辣油を煮詰めた暗い赤茶 */
+  --table-2:#3a1a16;      /* 卓の上の面 */
+  --paper:#efe6d2;        /* カードの紙 */
+  --paper-line:#cdbf9f;   /* 紙の罫線 */
+  --ink:#2a1a14;          /* 紙の上の文字 */
+  --shu:#c8321f;          /* 朱肉 */
+  --huajiao:#8fa35a;      /* 花椒の青み：状態表示用 */
+  --text:#f1e4d3;         /* 卓の上の文字 */
+  --muted:#b89c8c;
+  --font-display:"Zen Antique","Hiragino Mincho ProN","Yu Mincho",serif;
+  --font-body:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--table);color:var(--text);
+  font-family:var(--font-body);font-size:16px;line-height:1.6;
+  -webkit-text-size-adjust:100%;
+}
+main{max-width:520px;margin:0 auto;padding:20px 16px 120px;display:flex;flex-direction:column;gap:20px}
+h1,h2{font-family:var(--font-display);font-weight:400;margin:0;text-wrap:balance}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible,label:has(input:focus-visible){outline:2px solid var(--huajiao);outline-offset:2px}
+
+header{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+header h1{font-size:22px;letter-spacing:.08em}
+#sync{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+#sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--muted)}
+#sync[data-state="ok"]::before{background:var(--huajiao)}
+#sync[data-state="warn"]::before{background:#e0a23a}
+
+/* 集計 */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--table-2);border-radius:10px;padding:10px 12px}
+.stat b{display:block;font-family:var(--font-display);font-weight:400;font-size:26px;line-height:1.2;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+
+/* カード */
+.card{
+  background:var(--paper);color:var(--ink);border-radius:6px;padding:16px 16px 14px;
+  box-shadow:0 10px 24px rgba(0,0,0,.45);
+  display:flex;flex-direction:column;gap:12px;
+}
+.card{position:relative;padding-top:30px}
+.card::before{content:"";position:absolute;left:10px;right:10px;top:10px;height:10px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10'%3E%3Cpath d='M1 9V1h14v6H7V4h5' fill='none' stroke='%23c8321f' stroke-width='1.5'/%3E%3C/svg%3E") repeat-x left center}
+.card::after{content:"";position:absolute;inset:5px;border:1px solid var(--ink);border-radius:3px;opacity:.35;pointer-events:none}
+.card-title{display:flex;align-items:center;gap:10px}
+.card-title svg{width:38px;height:24px;flex:none}
+.card-sub{font-size:11px;letter-spacing:.3em;display:block;font-family:var(--font-body);margin-top:2px;opacity:.7}
+.grp{font-size:12px;color:var(--muted);margin:6px 0 -2px}
+.v-dish{font-size:14px;overflow-wrap:anywhere;grid-column:1}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.legend{font-size:11px;opacity:.75;letter-spacing:.04em}
+.legend b{font-family:var(--font-display);font-weight:400;color:var(--shu);font-size:13px}
+.card-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--ink);padding-bottom:8px;gap:8px}
+.card-head h2{font-size:20px;letter-spacing:.12em}
+.card-no{font-size:13px;font-variant-numeric:tabular-nums}
+.slots{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.slot{aspect-ratio:1;border:1.5px dashed var(--paper-line);border-radius:50%;display:grid;place-items:center;position:relative}
+.slot .n{font-family:var(--font-display);color:var(--paper-line);font-size:18px}
+.slot.goal .n{font-size:13px;letter-spacing:.05em}
+.slot.filled{border-color:transparent}
+.slot svg{position:absolute;inset:-4%;width:108%;height:108%}
+.slot.fresh svg{animation:press .35s cubic-bezier(.2,1.4,.4,1)}
+@keyframes press{from{transform:scale(1.5) rotate(var(--r));opacity:.2}}
+@media (prefers-reduced-motion:reduce){.slot.fresh svg{animation:none}}
+.rally-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px 8px}
+.rcell{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.rcell .slot{width:100%;border-radius:14%}
+.rname{font-size:10px;line-height:1.3;text-align:center;overflow-wrap:anywhere;word-break:break-all}
+.rname small{display:block;font-size:9px;opacity:.65}
+.rcount{font-size:10px;color:var(--shu);font-weight:700;font-variant-numeric:tabular-nums;min-height:1.3em}
+.card-foot{display:flex;justify-content:space-between;align-items:center;font-size:13px;gap:8px}
+.pager{display:flex;gap:6px}
+.pager button{background:none;border:1.5px solid var(--ink);border-radius:999px;width:36px;height:36px;line-height:1;color:var(--ink)}
+.pager button:disabled{opacity:.25;cursor:default}
+.full-note{color:var(--shu);font-weight:700}
+
+/* 押すボタン */
+.press-bar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--table) 35%);display:flex;justify-content:center;pointer-events:none}
+#openSheet{pointer-events:auto;width:100%;max-width:488px;background:var(--shu);color:#fff6ec;border:0;border-radius:12px;padding:15px;font-weight:700;font-size:17px;letter-spacing:.06em;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+#openSheet:active{transform:translateY(1px)}
+
+/* 履歴 */
+.history h2{font-size:17px;letter-spacing:.1em;margin-bottom:8px}
+#list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+#list li{background:var(--table-2);border-radius:10px;padding:12px;display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:start}
+.v-date{font-variant-numeric:tabular-nums;font-weight:700}
+.v-store{color:var(--muted);font-size:13px;margin-left:8px;font-weight:400}
+.v-memo{font-size:14px;overflow-wrap:anywhere;grid-column:1}
+.v-heat{font-size:12px;color:var(--muted);grid-column:1}
+.v-heat i{font-style:normal;color:var(--shu)}
+.del{grid-column:2;grid-row:1 / span 4;background:none;border:1px solid #6b3d35;color:var(--muted);border-radius:8px;padding:6px 10px;font-size:13px;min-height:36px}
+.del.armed{border-color:var(--shu);color:#fff;background:var(--shu)}
+.empty{color:var(--muted);font-size:14px;background:var(--table-2);border-radius:10px;padding:14px}
+footer{font-size:12px;color:var(--muted)}
+
+/* 入力シート */
+#sheet{position:fixed;inset:0;background:rgba(15,5,4,.65);display:none;align-items:flex-end;justify-content:center;z-index:10}
+#sheet.open{display:flex}
+#sheet form{background:var(--table-2);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;max-height:92%;overflow-y:auto}
+#sheet h2{font-size:19px;letter-spacing:.1em}
+.field{display:flex;flex-direction:column;gap:6px}
+.field > span,.field > legend{font-size:13px;color:var(--muted);padding:0}
+fieldset.field{border:0;margin:0;padding:0}
+input[type=date],input[type=text],textarea{
+  font:inherit;color:var(--text);background:var(--table);border:1px solid #6b3d35;border-radius:10px;padding:11px 12px;width:100%;min-height:46px
+}
+textarea{resize:vertical;min-height:70px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips label{border:1px solid #6b3d35;border-radius:999px;padding:8px 14px;font-size:14px;cursor:pointer;min-height:40px;display:flex;align-items:center}
+.chips input{position:absolute;opacity:0;pointer-events:none}
+.chips label:has(input:checked){background:var(--paper);color:var(--ink);border-color:var(--paper);font-weight:700}
+.actions{display:flex;gap:10px}
+.actions button{flex:1;border-radius:12px;padding:13px;border:1px solid #6b3d35;background:none;font-weight:700}
+.actions .primary{background:var(--shu);border-color:var(--shu);color:#fff6ec}
+.checkin{background:var(--table);border:1px solid #6b3d35;border-radius:10px;padding:12px;font-size:15px}
+.checkin.ok{border-color:var(--huajiao)}
+.checkin.ng{border-color:#e0a23a}
+.checkin b{display:block;font-size:17px}
+.retry{align-self:flex-start;background:none;border:1px solid #6b3d35;border-radius:999px;padding:8px 14px;font-size:14px;min-height:40px}
+.actions .primary:disabled{opacity:.35;cursor:default}
+#formError{color:#ffb4a4;font-size:13px;min-height:1em;margin:0}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>麻辣先生スタンプカード</h1>
+    <div id="sync" data-state="idle">読み込み中</div>
+  </header>
+
+  <section class="stats" aria-label="集計">
+    <div class="stat"><b id="sTotal">0</b><span>通算の来店</span></div>
+    <div class="stat"><b id="sStores">0</b><span>訪れた店舗</span></div>
+    <div class="stat"><b id="sLeft">10</b><span>満了まであと</span></div>
+  </section>
+
+  <section class="card" aria-label="スタンプカード">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 40 24" aria-hidden="true"><path d="M7 8c9-4 20-1 30 11C25 21 12 19 7 8z" fill="#c8321f"/><path d="M7 8C5 6 4 4 5 2" fill="none" stroke="#5d7032" stroke-width="2.4" stroke-linecap="round"/><circle cx="6" cy="19" r="2.6" fill="#5d7032"/><circle cx="12.5" cy="21" r="2" fill="#5d7032"/></svg>
+        <h2>食べた回数スタンプ<span class="card-sub">痺れと辛さの十番勝負</span></h2>
+      </div>
+      <div class="card-no" id="cardNo">1枚目</div>
+    </div>
+    <div class="slots" id="slots"></div>
+    <div class="legend">印の文字は選んだ辛さ　<b>甘 小 中 大 極 獄 S</b>　選ばない日は <b>辣</b></div>
+    <div class="card-foot">
+      <div id="cardNote">10個たまると1枚満了</div>
+      <div class="pager">
+        <button type="button" id="prevCard" aria-label="前のカード">‹</button>
+        <button type="button" id="nextCard" aria-label="次のカード">›</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-label="店舗ラリースタンプ">
+    <div class="card-head">
+      <div class="card-title">
+        <h2>店舗ラリースタンプ<span class="card-sub">全十店めぐり</span></h2>
+      </div>
+      <div class="card-no" id="rallyNo">0 / 10店</div>
+    </div>
+    <div class="rally-grid" id="rally"></div>
+    <div class="card-foot"><div id="rallyNote">行った店舗に、初めて訪れた日の印が付きます</div></div>
+  </section>
+
+  <section class="history">
+    <h2>これまでの来店</h2>
+    <ul id="list"></ul>
+  </section>
+
+  <footer>スタンプは店舗の近く（およそ200m以内）にいるときだけ、その日の分として押せます。記録はこの端末のブラウザに保存されます。自分用の記録カードで、お店が発行する公式のカードではありません。</footer>
+</main>
+
+<div class="press-bar"><button type="button" id="openSheet">スタンプを押す</button></div>
+
+<div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <form id="visitForm" novalidate>
+    <h2 id="sheetTitle">来店を記録する</h2>
+    <div class="field"><span>チェックイン</span>
+      <div id="checkin" class="checkin" role="status" aria-live="polite">現在地を確認しています</div>
+      <button type="button" id="retryLoc" class="retry" hidden>もう一度確認する</button>
+    </div>
+    <fieldset class="field"><legend>辛さ（任意・お店の7段階）</legend>
+      <div class="chips" id="heatChips"></div>
+    </fieldset>
+    <fieldset class="field"><legend>食べたもの（任意・いくつでも）</legend>
+      <div class="chips" id="dishChips"></div>
+      <p class="hint">店舗や時期でメニューは変わります。ここにない料理はメモに書けます。</p>
+    </fieldset>
+    <label class="field"><span>メモ（任意）</span>
+      <textarea id="fMemo" maxlength="200" placeholder="例：ランチセット、ほかに頼んだ料理"></textarea>
+    </label>
+    <p id="formError" role="alert"></p>
+    <div class="actions">
+      <button type="button" id="cancelSheet">やめる</button>
+      <button type="submit" class="primary" id="submitBtn" disabled>押す</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var PER_CARD = 10;
+  var STORES_A = ["豊洲本店","飯田橋1号店","飯田橋2号店","木場店","日本橋1号店","日本橋2号店","高輪ゲートウェイ店","京橋店"];
+  var STORES_B = ["大手町店","大阪ハービスプラザ店"];
+  var STORES = STORES_A.concat(STORES_B.map(function(n){ return "麻辣大先生 "+n; }));
+  /* 各店舗の位置（緯度・経度）。STORES と同じ並び */
+  var STORE_GEO = [[35.6521125,139.7980847],[35.6987499,139.7456854],[35.7033409,139.7434099],[35.6698638,139.811592],[35.6884067,139.7741638],[35.6816638,139.7772991],[35.6373009,139.7390572],[35.6767416,139.7737444],[35.6857056,139.7629362],[34.6984253,135.4926758]];
+  var RADIUS_M = 200;       // 店舗からこの距離以内なら押せる
+  var ACC_MAX_M = 300;      // 測位誤差として上乗せする上限
+  var HEATS = ["甘辛","小辛","中辛","大辛","極辛","地獄辛","ドS辛"];
+  var HEAT_CH = ["甘","小","中","大","極","獄","S"];
+  var DISHES = ["老四川麻婆豆腐","薬膳香辛料入り石焼麻婆豆腐","伝統四川よだれ鶏","四川ラー油スープ水餃子","四川鶏唐揚げのスパイス炒め","本場四川汁なし坦々麺","痺れる麻辣刀削麺","薬膳火鍋","豆苗のガーリック炒め","自家製濃厚杏仁豆腐"];
+  var LS_KEY = "mala-stamp-v1";
+
+  var visits = [];          // {id, date:"YYYY-MM-DD", store, heat:0-3, memo, at:number}
+  var viewCard = null;      // 表示中のカード番号（0始まり）。null は最新
+  var freshId = null;
+  var armedId = null;
+  var checkin = null;       // 位置確認が通った店舗の番号
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  function today(){
+    var d = new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  function sortVisits(){
+    visits.sort(function(a,b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.at||0)-(b.at||0); });
+  }
+  function clean(list){
+    if(!Array.isArray(list)) return [];
+    return list.filter(function(v){ return v && typeof v.id==="string" && /^\d{4}-\d{2}-\d{2}$/.test(v.date||""); })
+      .map(function(v){
+        var lv = typeof v.lv==="number" ? v.lv : (typeof v.heat==="number" ? Math.min(v.heat+1,6) : -1);
+        if(!(lv>=0 && lv<HEATS.length)) lv = -1;
+        var dishes = Array.isArray(v.dishes) ? v.dishes.filter(function(d){ return typeof d==="string"; }).slice(0,20) : [];
+        var store = String(v.store||"");
+        if(store==="日本橋店") store="日本橋1号店"; else if(store==="京橋店"||STORES.indexOf(store)>=0){} 
+        return {id:v.id, date:v.date, store:store, lv:lv, dishes:dishes, memo:String(v.memo||""), at:Number(v.at)||0};
+      });
+  }
+  function hash(s){ var h=0; for(var i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return Math.abs(h); }
+
+  /* ---- 保存 ---- */
+  function loadLocal(){
+    try{ var raw = localStorage.getItem(LS_KEY); if(raw) visits = clean(JSON.parse(raw).visits); }catch(e){}
+    sortVisits();
+  }
+  function saveLocal(){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify({visits:visits})); }catch(e){}
+  }
+  function setSync(state, text){ var el=$("sync"); el.dataset.state=state; el.textContent=text; }
+
+  function save(){ saveLocal(); }
+
+  /* ---- 描画 ---- */
+  function stampSVG(v){
+    var r = (hash(v.id)%25)-12;
+    var p = v.date.split("-");
+    var label = Number(p[1])+"."+Number(p[2]);
+    var ch = v.lv>=0 ? HEAT_CH[v.lv] : "辣";
+    var ring = v.lv>=5 ? ' stroke-dasharray="7 3.5"' : (v.lv===0 ? ' stroke-dasharray="1.5 4" stroke-linecap="round"' : '');
+    return '<svg viewBox="0 0 100 100" style="--r:'+r+'deg;transform:rotate('+r+'deg)" aria-hidden="true">'+
+      '<g fill="none" stroke="var(--shu)" opacity=".9">'+
+      '<circle cx="50" cy="50" r="44" stroke-width="4"'+ring+'/>'+
+      '<circle cx="50" cy="50" r="37" stroke-width="1.2"/></g>'+
+      '<text x="50" y="55" text-anchor="middle" font-family="Zen Antique,serif" font-size="38" fill="var(--shu)" opacity=".92">'+ch+'</text>'+
+      '<text x="50" y="76" text-anchor="middle" font-family="Zen Kaku Gothic New,sans-serif" font-weight="700" font-size="13" fill="var(--shu)" opacity=".92">'+label+'</text>'+
+      '</svg>';
+  }
+
+  function rallySVG(v){
+    var r = (hash(v.id+"r")%17)-8;
+    var p = v.date.split("-");
+    var label = String(p[0]).slice(2)+"."+Number(p[1])+"."+Number(p[2]);
+    return '<svg viewBox="0 0 100 100" style="--r:'+r+'deg;transform:rotate('+r+'deg)" aria-hidden="true">'+
+      '<g fill="none" stroke="var(--shu)" opacity=".9">'+
+      '<rect x="7" y="7" width="86" height="86" rx="10" stroke-width="4"/>'+
+      '<rect x="14" y="14" width="72" height="72" rx="6" stroke-width="1.2"/></g>'+
+      '<text x="50" y="56" text-anchor="middle" font-family="Zen Antique,serif" font-size="36" fill="var(--shu)" opacity=".92">訪</text>'+
+      '<text x="50" y="77" text-anchor="middle" font-family="Zen Kaku Gothic New,sans-serif" font-weight="700" font-size="12" fill="var(--shu)" opacity=".92">'+label+'</text>'+
+      '</svg>';
+  }
+
+  function render(){
+    var n = visits.length;
+    var lastCard = n===0 ? 0 : Math.ceil(n/PER_CARD)-1;
+    var card = viewCard===null ? lastCard : Math.min(viewCard,lastCard);
+    var start = card*PER_CARD;
+    var onCard = visits.slice(start,start+PER_CARD);
+
+    $("sTotal").textContent = n;
+    var left = n===0 ? PER_CARD : (n%PER_CARD===0 ? PER_CARD : PER_CARD - n%PER_CARD);
+    $("sLeft").textContent = left;
+
+    $("cardNo").textContent = (card+1)+"枚目";
+    var html = "";
+    for(var i=0;i<PER_CARD;i++){
+      var v = onCard[i];
+      if(v){
+        html += '<div class="slot filled'+(v.id===freshId?' fresh':'')+'" role="img" aria-label="'+v.date+' 来店">'+stampSVG(v)+'</div>';
+      }else{
+        html += '<div class="slot'+(i===PER_CARD-1?' goal':'')+'"><span class="n">'+(i===PER_CARD-1?'満了':(i+1))+'</span></div>';
+      }
+    }
+    $("slots").innerHTML = html;
+    var note = $("cardNote");
+    if(onCard.length===PER_CARD){ note.textContent="満了。よく痺れました"; note.className="full-note"; }
+    else{ note.textContent="あと"+(PER_CARD-onCard.length)+"個で満了"; note.className=""; }
+    $("prevCard").disabled = card===0;
+    $("nextCard").disabled = card>=lastCard;
+    $("prevCard").onclick = function(){ viewCard = card-1; render(); };
+    $("nextCard").onclick = function(){ viewCard = card+1>=lastCard ? null : card+1; render(); };
+
+    /* 店舗ラリー：来店記録から自動で決まる */
+    var first = {}, count = {};
+    visits.forEach(function(v){ if(!first[v.store]) first[v.store]=v; count[v.store]=(count[v.store]||0)+1; });
+    var done = 0, rh = "";
+    STORES.forEach(function(name){
+      var f = first[name]; if(f) done++;
+      var big = name.indexOf("麻辣大先生 ")===0;
+      var label = big ? '<small>麻辣大先生</small>'+name.slice(6) : name;
+      rh += '<div class="rcell">'+
+        (f ? '<div class="slot filled'+(f.id===freshId?' fresh':'')+'" role="img" aria-label="'+name+' 訪問済み">'+rallySVG(f)+'</div>'
+           : '<div class="slot" role="img" aria-label="'+name+' 未訪問"></div>')+
+        '<div class="rname">'+label+'</div><div class="rcount">'+(count[name]?count[name]+'回':'')+'</div></div>';
+    });
+    $("rally").innerHTML = rh;
+    $("rallyNo").textContent = done+" / "+STORES.length+"店";
+    $("sStores").textContent = done;
+    var rn = $("rallyNote");
+    if(done===STORES.length){ rn.textContent="全店制覇。おみごと"; rn.className="full-note"; }
+    else{ rn.textContent = done===0 ? "行った店舗に、初めて訪れた日の印が付きます" : "全店制覇まであと"+(STORES.length-done)+"店"; rn.className=""; }
+
+    var list = $("list"); list.textContent="";
+    if(n===0){
+      var e = document.createElement("li"); e.className="empty";
+      e.textContent="まだ記録がありません。下の「スタンプを押す」から最初の1個をどうぞ。";
+      e.style.display="block"; list.appendChild(e);
+    }
+    visits.slice().reverse().forEach(function(v){
+      var li = document.createElement("li");
+      var d = document.createElement("div"); d.className="v-date";
+      var p = v.date.split("-"); d.textContent = p[0]+"年"+Number(p[1])+"月"+Number(p[2])+"日";
+      if(v.store){ var s=document.createElement("span"); s.className="v-store"; s.textContent=v.store; d.appendChild(s); }
+      li.appendChild(d);
+      if(v.lv>=0){
+        var h = document.createElement("div"); h.className="v-heat";
+        h.textContent = "辛さ "; var dots=document.createElement("i");
+        dots.textContent = "●".repeat(v.lv+1); h.appendChild(dots);
+        h.appendChild(document.createTextNode("○".repeat(HEATS.length-1-v.lv)+" "+HEATS[v.lv]));
+        li.appendChild(h);
+      }
+      if(v.dishes.length){ var ds=document.createElement("div"); ds.className="v-dish"; ds.textContent=v.dishes.join("、"); li.appendChild(ds); }
+      if(v.memo){ var m=document.createElement("div"); m.className="v-memo"; m.textContent=v.memo; li.appendChild(m); }
+      var b = document.createElement("button"); b.type="button"; b.className="del"+(armedId===v.id?" armed":"");
+      b.textContent = armedId===v.id ? "消す" : "削除";
+      b.setAttribute("aria-label", v.date+" の記録を"+(armedId===v.id?"本当に消す":"削除"));
+      b.onclick = function(){
+        if(armedId===v.id){
+          visits = visits.filter(function(x){ return x.id!==v.id; });
+          armedId=null; viewCard=null; save();
+        }else{ armedId=v.id; }
+        render();
+      };
+      li.appendChild(b);
+      list.appendChild(li);
+    });
+  }
+
+  /* ---- 入力シート ---- */
+  function chips(container, name, labels, checked, offset, type){
+    offset = offset||0; type = type||"radio";
+    container.innerHTML = labels.map(function(l,j){
+      var i = j+offset;
+      return '<label><input type="'+type+'" name="'+name+'" id="'+name+i+'" value="'+i+'"'+(i===checked?' checked':'')+'>'+l+'</label>';
+    }).join("");
+  }
+  function meters(lat1,lon1,lat2,lon2){
+    var R=6371000, r=Math.PI/180;
+    var a=Math.sin((lat2-lat1)*r/2), b=Math.sin((lon2-lon1)*r/2);
+    var h=a*a+Math.cos(lat1*r)*Math.cos(lat2*r)*b*b;
+    return 2*R*Math.asin(Math.sqrt(h));
+  }
+  function fmtDist(m){ return m<1000 ? "約"+Math.round(m/10)*10+"m" : "約"+(m/1000).toFixed(1)+"km"; }
+  function setCheckin(cls, title, body, canRetry){
+    var el=$("checkin"); el.className="checkin"+(cls?" "+cls:""); el.textContent="";
+    if(title){ var b=document.createElement("b"); b.textContent=title; el.appendChild(b); }
+    el.appendChild(document.createTextNode(body));
+    $("retryLoc").hidden = !canRetry;
+    $("submitBtn").disabled = checkin===null;
+  }
+  function locate(){
+    checkin = null;
+    setCheckin("", "", "現在地を確認しています", false);
+    if(!navigator.geolocation){ setCheckin("ng","位置情報が使えません","このブラウザは位置情報に対応していないため、スタンプを押せません。",false); return; }
+    navigator.geolocation.getCurrentPosition(function(pos){
+      var best=-1, bestD=Infinity;
+      STORE_GEO.forEach(function(g,i){ var d=meters(pos.coords.latitude,pos.coords.longitude,g[0],g[1]); if(d<bestD){bestD=d;best=i;} });
+      var slack = Math.min(pos.coords.accuracy||0, ACC_MAX_M);
+      var name = STORES[best];
+      if(bestD > RADIUS_M + slack){
+        setCheckin("ng","店舗の近くにいません","いちばん近いのは "+name+"（"+fmtDist(bestD)+"）です。お店に着いてから押してください。",true);
+        return;
+      }
+      var t = today();
+      if(visits.some(function(v){ return v.date===t && v.store===name; })){
+        setCheckin("ng",name,"今日はこの店舗でもう押しています。1店舗につき1日1回です。",false);
+        return;
+      }
+      checkin = best;
+      var p = t.split("-");
+      setCheckin("ok",name,Number(p[1])+"月"+Number(p[2])+"日の来店として記録します（店舗まで"+fmtDist(bestD)+"）。",false);
+    }, function(err){
+      var msg = err && err.code===1 ? "位置情報が許可されていません。ブラウザやスマホの設定でこのサイトの位置情報を許可してから、もう一度確認してください。"
+              : "現在地を取得できませんでした。電波の入る場所で、もう一度確認してください。";
+      setCheckin("ng","現在地がわかりません",msg,true);
+    }, {enableHighAccuracy:true, timeout:15000, maximumAge:0});
+  }
+  function openSheet(){
+    chips($("heatChips"),"heat",HEATS,-1);
+    chips($("dishChips"),"dish",DISHES,-1,0,"checkbox");
+    $("fMemo").value=""; $("formError").textContent="";
+    $("sheet").classList.add("open");
+    locate();
+  }
+  function closeSheet(){ $("sheet").classList.remove("open"); $("openSheet").focus(); }
+
+  $("openSheet").addEventListener("click", openSheet);
+  $("cancelSheet").addEventListener("click", closeSheet);
+  $("retryLoc").addEventListener("click", locate);
+  $("sheet").addEventListener("click", function(e){ if(e.target===this) closeSheet(); });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape" && $("sheet").classList.contains("open")) closeSheet(); });
+
+  $("visitForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    if(checkin===null){ $("formError").textContent="店舗の近くで現在地を確認できたときだけ押せます。"; return; }
+    var date = today();
+    var store = STORES[checkin];
+    if(visits.some(function(v){ return v.date===date && v.store===store; })){ $("formError").textContent="今日はこの店舗でもう押しています。"; return; }
+    var dishes = Array.prototype.map.call(document.querySelectorAll('input[name="dish"]:checked'), function(el){ return DISHES[Number(el.value)]; });
+    var hEl = document.querySelector('input[name="heat"]:checked');
+    var id = "v"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    visits.push({id:id, date:date, store:store, lv:hEl?Number(hEl.value):-1, dishes:dishes, memo:$("fMemo").value.trim(), at:Date.now()});
+    sortVisits();
+    freshId = id; armedId=null;
+    viewCard = Math.floor(visits.findIndex(function(v){return v.id===id;})/PER_CARD);
+    if(viewCard >= Math.ceil(visits.length/PER_CARD)-1) viewCard = null;
+    checkin = null; save(); closeSheet(); render();
+    window.scrollTo({top:0, behavior:"auto"});
+  });
+
+  loadLocal();
+  render();
+  setSync("ok","この端末に保存");
+})();
+</script>
+</body>
+</html>
